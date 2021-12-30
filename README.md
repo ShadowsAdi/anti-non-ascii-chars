@@ -1,0 +1,1 @@
+# anti-non-ascii-chars
