@@ -1,5 +1,6 @@
 /* Sublime AMXX Editor v4.2 */
 
+/* Uncomment this if you want use reAPI support. */
 //#define USE_REAPI
 
 #include <amxmodx>
