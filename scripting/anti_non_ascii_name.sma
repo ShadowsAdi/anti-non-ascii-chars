@@ -1,9 +1,9 @@
 /* Sublime AMXX Editor v4.2 */
 
-//#define USE_REAPI
+/* Uncomment this if you want use reAPI support. */
+#define USE_REAPI
 
 #include <amxmodx>
-#include <amxmisc>
 #if !defined USE_REAPI
 #include <fakemeta>
 #else
@@ -15,7 +15,7 @@
 #endif
 
 #define PLUGIN  "Anti NON-ASCII Chars in Name"
-#define VERSION "1.1"
+#define VERSION "1.2"
 #define AUTHOR  "Shadows Adi"
 
 new Array:g_aNewNames
@@ -41,14 +41,14 @@ public plugin_end()
 public plugin_cfg()
 {
 	new szConfigsDir[256], szFileName[256]
-	get_configsdir(szConfigsDir, charsmax(szConfigsDir))
+	get_localinfo("amxx_configsdir", szConfigsDir, charsmax(szConfigsDir))
 	formatex(szFileName, charsmax(szFileName), "%s/NewNames.ini", szConfigsDir)
 
 	new iFile = fopen(szFileName, "rt")
 
 	if(iFile)
 	{
-		new szData[48], szTemp[MAX_NAME_LENGTH]
+		new szData[48]
 
 		while(fgets(iFile, szData, charsmax(szData)))
 		{
@@ -57,9 +57,9 @@ public plugin_cfg()
 			if(szData[0] == '#' || szData[0] == EOS || szData[0] == ';')
 				continue
 
-			parse(szData, szTemp, charsmax(szTemp))
+			replace_all(szData, charsmax(szData), "^"", "")
 
-			ArrayPushString(g_aNewNames, szTemp)
+			ArrayPushString(g_aNewNames, szData)
 		}
 	}
 	fclose(iFile)
@@ -71,6 +71,33 @@ public FM_ClientUserInfoChanged_Pre(id)
 	new szName[MAX_NAME_LENGTH]
 	get_user_info(id, "name", szName, charsmax(szName))
 
+	return check_player_name(id, szName)
+}
+#else
+
+/* We need to call the checking function in this player state, because reapi's RG_CBasePlayer_SetClientUserInfoName is called only
+   when a player is changing his name, not the same behaviour as RG_CSGameRules_ClientUserInfoChanged.*/
+public client_putinserver(id)
+{
+	new szName[MAX_NAME_LENGTH]
+
+	get_user_name(id, szName, charsmax(szName))
+
+	check_player_name(id, szName)
+}
+
+public RG_SetClientUserInfoName_Pre(id, szBuffer[], szNewName[])
+{
+	SetHookChainReturn(ATYPE_BOOL, true)
+
+	return check_player_name(id, szNewName)
+
+}
+#endif
+
+check_player_name(id, szName[])
+{
+	server_print("here 1")
 	new bool:bFound
 	for(new i; i < strlen(szName); i++)
 	{
@@ -89,48 +116,25 @@ public FM_ClientUserInfoChanged_Pre(id)
 		ArrayGetString(g_aNewNames, iRandom, szTemp, charsmax(szTemp))
 
 		set_user_info(id, "name", szTemp)
-
-		client_print_color(id, id, "^1Your name has been ^4changed ^1because ^4non-ASCII characters ^1has been found in your name!")
-		return FMRES_HANDLED
-	}
-
-	return FMRES_IGNORED
-}
-#else
-
-public RG_SetClientUserInfoName_Pre(id, szBuffer[], szNewName[])
-{
-	new iPos = containi(szBuffer, "name")
-	new bool:bFound
-	if(iPos != -1)
-	{
-		for(new i; i < strlen(szNewName); i++)
+		if(is_user_connected(id))
 		{
-			if(!isalnum(szNewName[i])  && !is_standard_ascii(szName[i]))
-			{
-				bFound = true
-				break;
-			}
-		}
-
-		if(bFound)
-		{
-			new szTemp[MAX_NAME_LENGTH]
-			new iRandom = random(ArraySize(g_aNewNames) - 1)
-
-			ArrayGetString(g_aNewNames, iRandom, szTemp, charsmax(szTemp))
-
-			set_member(id, m_szNewName, szTemp)
-
 			client_print_color(id, id, "^1Your name has been ^4changed ^1because ^4non-ASCII characters ^1has been found in your name!")
-			return HC_SUPERCEDE
 		}
-	}
-	return HC_CONTINUE
-}
-#endif
 
-stock is_standard_ascii(iChar[])
+		#if !defined USE_REAPI
+		return FMRES_HANDLED
+		#else 
+		return HC_SUPERCEDE
+		#endif
+	}
+	#if !defined USE_REAPI
+	return FMRES_IGNORED
+	#else
+	return HC_CONTINUE
+	#endif
+}
+
+is_standard_ascii(iChar[])
 {
 	// ASCII Standard without some characters. See https://www.rapidtables.com/code/text/ascii-table.html#table
 	if(iChar[0] > 31 && iChar[0] < 128)
