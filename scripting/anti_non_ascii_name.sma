@@ -6,16 +6,22 @@
 #include <amxmodx>
 #if !defined USE_REAPI
 #include <fakemeta>
+
+#define BLOCK_FUNC		FMRES_HANDLED
+#define CONTINUE_FUNC	FMRES_IGNORED
 #else
 #include <reapi>
+
+#define BLOCK_FUNC		HC_SUPERCEDE
+#define CONTINUE_FUNC	HC_CONTINUE
 #endif
 
 #if !defined MAX_NAME_LENGTH
 #define MAX_NAME_LENGTH 32
 #endif
 
-#define PLUGIN  "Anti NON-ASCII Chars in Name"
-#define VERSION "1.2"
+#define PLUGIN  "Anti NON-ASCII Characters in Name"
+#define VERSION "1.3"
 #define AUTHOR  "Shadows Adi"
 
 new Array:g_aNewNames
@@ -24,6 +30,8 @@ public plugin_init()
 {
 	register_plugin(PLUGIN, VERSION, AUTHOR)
 
+	register_cvar("standard_ascii", AUTHOR, FCVAR_SERVER|FCVAR_EXTDLL|FCVAR_UNLOGGED|FCVAR_SPONLY)
+
 	#if !defined USE_REAPI
 	register_forward(FM_ClientUserInfoChanged, "FM_ClientUserInfoChanged_Pre")
 	#else 
@@ -31,11 +39,6 @@ public plugin_init()
 	#endif
 
 	g_aNewNames = ArrayCreate(MAX_NAME_LENGTH)
-}
-
-public plugin_end()
-{
-	ArrayDestroy(g_aNewNames)
 }
 
 public plugin_cfg()
@@ -63,6 +66,11 @@ public plugin_cfg()
 		}
 	}
 	fclose(iFile)
+}
+
+public plugin_end()
+{
+	ArrayDestroy(g_aNewNames)
 }
 
 #if !defined USE_REAPI
@@ -97,7 +105,6 @@ public RG_SetClientUserInfoName_Pre(id, szBuffer[], szNewName[])
 
 check_player_name(id, szName[])
 {
-	server_print("here 1")
 	new bool:bFound
 	for(new i; i < strlen(szName); i++)
 	{
@@ -116,22 +123,16 @@ check_player_name(id, szName[])
 		ArrayGetString(g_aNewNames, iRandom, szTemp, charsmax(szTemp))
 
 		set_user_info(id, "name", szTemp)
+
 		if(is_user_connected(id))
 		{
 			client_print_color(id, id, "^1Your name has been ^4changed ^1because ^4non-ASCII characters ^1has been found in your name!")
 		}
 
-		#if !defined USE_REAPI
-		return FMRES_HANDLED
-		#else 
-		return HC_SUPERCEDE
-		#endif
+		return BLOCK_FUNC
 	}
-	#if !defined USE_REAPI
-	return FMRES_IGNORED
-	#else
-	return HC_CONTINUE
-	#endif
+
+	return CONTINUE_FUNC
 }
 
 is_standard_ascii(iChar[])
