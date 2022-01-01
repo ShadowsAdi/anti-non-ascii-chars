@@ -97,7 +97,6 @@ public RG_SetClientUserInfoName_Pre(id, szBuffer[], szNewName[])
 
 check_player_name(id, szName[])
 {
-	server_print("here 1")
 	new bool:bFound
 	for(new i; i < strlen(szName); i++)
 	{
